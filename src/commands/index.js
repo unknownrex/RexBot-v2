@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js'
-import { CATEGORIES, DEFAULT_ICON } from '../lib/theme.js'
+import { CATEGORIES, DEFAULT_ICON, renderHeader } from '../lib/theme.js'
 import { sendText } from '../lib/reply.js'
 import { stickerCommands } from './sticker.js'
 import { gameCommands } from './games.js'
@@ -49,7 +49,7 @@ function registerHelp() {
             return `• ${usage}${c.groupOnly ? ' _(group only)_' : ''}\n   _${c.description}_`
           })
           .join('\n')
-        sections.push(`${meta.icon} *${meta.label.toUpperCase()}*\n${rows}`)
+        sections.push(`${renderHeader(meta.icon, meta.label)}\n\n${rows}`)
       }
 
       const body = sections.join('\n\n')

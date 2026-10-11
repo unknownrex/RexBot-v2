@@ -9,10 +9,10 @@ export const CONFIG = {
   prefix: process.env.PREFIX || '.',
   botName: process.env.BOT_NAME || 'RexBot',
   theme: {
-    style: process.env.THEME_STYLE === 'minimal' ? 'minimal' : 'box',
+    style: process.env.THEME_STYLE === 'minimal' ? 'minimal' : 'divider',
     accent: process.env.THEME_ACCENT || '·',
-    minWidth: int(process.env.THEME_MIN_WIDTH, 22),
-    maxWidth: int(process.env.THEME_MAX_WIDTH, 34),
+    divider: process.env.THEME_DIVIDER || '━',
+    dividerWidth: int(process.env.THEME_DIVIDER_WIDTH, 15),
   },
   packName: process.env.PACK_NAME || 'RexBot',
   packPublisher: process.env.PACK_PUBLISHER || 'RexBot Team',
