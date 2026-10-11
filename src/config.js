@@ -18,6 +18,9 @@ export const CONFIG = {
   packPublisher: process.env.PACK_PUBLISHER || 'RexBot Team',
   maxVideoSeconds: int(process.env.MAX_VIDEO_SECONDS, 6),
   cooldownMs: int(process.env.COOLDOWN_MS, 3000),
+  // Media commands allow this many invocations per cooldown window, so a
+  // multi-image send converts in full instead of one per window.
+  mediaBatchLimit: int(process.env.MEDIA_BATCH_LIMIT, 10),
   ffmpegTimeoutMs: int(process.env.FFMPEG_TIMEOUT_MS, 30000),
   authDir: 'auth',
   tempDir: 'temp',

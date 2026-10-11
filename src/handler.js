@@ -12,6 +12,34 @@ import { COMMANDS } from './commands/index.js'
 import { sendError } from './lib/reply.js'
 
 const lastRun = new Map()
+const rateBuckets = new Map()
+
+// Single-slot throttle for most commands. Commands that declare `batchLimit`
+// get a token bucket instead, so a multi-image send (which arrives as several
+// message events within milliseconds) is not swallowed by one shared window.
+function claimRateSlot(command, jid) {
+  const windowMs = command.cooldownMs ?? CONFIG.cooldownMs
+  const key = `${command.name}:${jid}`
+  const now = Date.now()
+  const limit = command.batchLimit ?? 1
+
+  if (limit <= 1) {
+    if (now - (lastRun.get(key) || 0) < windowMs) return false
+    lastRun.set(key, now)
+    return true
+  }
+
+  const bucket = rateBuckets.get(key)
+  if (!bucket || now - bucket.startedAt >= windowMs) {
+    rateBuckets.set(key, { startedAt: now, count: 1 })
+    return true
+  }
+  if (bucket.count < limit) {
+    bucket.count += 1
+    return true
+  }
+  return false
+}
 
 function parseCommand(text, prefix) {
   if (!text.startsWith(prefix)) return null
@@ -69,10 +97,7 @@ export async function handleMessage(sock, msg) {
     return
   }
 
-  const cooldownKey = `${command.name}:${jid}`
-  const now = Date.now()
-  if (now - (lastRun.get(cooldownKey) || 0) < (command.cooldownMs ?? CONFIG.cooldownMs)) return
-  lastRun.set(cooldownKey, now)
+  if (!claimRateSlot(command, jid)) return
 
   try {
     await command.exec(ctx)

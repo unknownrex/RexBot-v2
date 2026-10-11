@@ -1,3 +1,4 @@
+import { CONFIG } from '../config.js'
 import { downloadMedia, isMediaType } from '../lib/media.js'
 import { sendError, sendImage, sendSticker } from '../lib/reply.js'
 import { toImage, toSticker } from '../lib/sticker.js'
@@ -14,6 +15,7 @@ export const stickerCommands = [
     aliases: ['sticker'],
     category: 'sticker',
     icon: '🎨',
+    batchLimit: CONFIG.mediaBatchLimit,
     usage: '.s',
     description: 'Convert an image, GIF, or video into a sticker (send media with this caption or reply to media).',
     async exec(ctx) {
@@ -40,6 +42,7 @@ export const stickerCommands = [
     aliases: ['img'],
     category: 'sticker',
     icon: '🖼️',
+    batchLimit: CONFIG.mediaBatchLimit,
     usage: '.toimg',
     description: 'Convert a sticker into an image (reply to a sticker).',
     async exec(ctx) {
