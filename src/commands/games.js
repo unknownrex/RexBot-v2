@@ -2,6 +2,9 @@ import { randomInt } from 'node:crypto'
 import sharp from 'sharp'
 import { sendError, sendImage, sendText } from '../lib/reply.js'
 
+// Comfortably below crypto.randomInt's 2^48-1 span limit.
+const LIMIT = 1_000_000_000
+
 const PIPS = {
   1: [[2, 2]],
   2: [[1, 1], [3, 3]],
@@ -11,22 +14,15 @@ const PIPS = {
   6: [[1, 1], [1, 2], [1, 3], [3, 1], [3, 2], [3, 3]],
 }
 
-function diceSvg(value, sides) {
+function diceSvg(value) {
   const s = 512
-  const face = value <= 6 ? PIPS[value] : null
-  const dots = face
-    ? face.map(([x, y]) => `<circle cx="${x * 128}" cy="${y * 128}" r="52" fill="#1f2937"/>`).join('')
-    : `<text x="${s / 2}" y="${s / 2}" font-size="220" font-family="Arial,sans-serif" font-weight="bold" fill="#1f2937" text-anchor="middle" dominant-baseline="central">${value}</text>`
+  const dots = PIPS[value]
+    .map(([x, y]) => `<circle cx="${x * 128}" cy="${y * 128}" r="52" fill="#1f2937"/>`)
+    .join('')
   return `<svg width="${s}" height="${s}" xmlns="http://www.w3.org/2000/svg">
     <rect x="16" y="16" width="${s - 32}" height="${s - 32}" rx="72" fill="#ffffff" stroke="#1f2937" stroke-width="12"/>
     ${dots}
   </svg>`
-}
-
-const parseSides = (arg) => {
-  const n = Number.parseInt(arg, 10)
-  if (!Number.isFinite(n)) return 6
-  return Math.min(100, Math.max(2, n))
 }
 
 export const gameCommands = [
@@ -35,14 +31,12 @@ export const gameCommands = [
     aliases: ['d'],
     category: 'games',
     icon: '🎲',
-    usage: '.dice [sides]',
-    description: 'Roll a die (default 6 sides, max 100).',
+    usage: '.dice',
+    description: 'Roll a six-sided die.',
     async exec(ctx) {
-      const sides = parseSides(ctx.args[0])
-      const value = randomInt(1, sides + 1)
-      const svg = diceSvg(value, sides)
-      const png = await sharp(Buffer.from(svg)).png().toBuffer()
-      await sendImage(ctx, png, `*Rolled*: ${value} (d${sides})`)
+      const value = randomInt(1, 7)
+      const png = await sharp(Buffer.from(diceSvg(value))).png().toBuffer()
+      await sendImage(ctx, png, `*Rolled*: ${value}`)
     },
   },
   {
@@ -73,6 +67,12 @@ export const gameCommands = [
       }
       if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
         await sendError(ctx, 'Usage: `.random [min] [max]` with min < max.')
+        return
+      }
+      // crypto.randomInt throws ERR_OUT_OF_RANGE once the span exceeds
+      // 2^48-1, which previously surfaced as a generic crash for the user.
+      if (min < -LIMIT || max > LIMIT || max - min > LIMIT) {
+        await sendError(ctx, `Range too large. Use values between ${-LIMIT} and ${LIMIT}, up to ${LIMIT} apart.`)
         return
       }
       await sendText(ctx, `*Result*: ${randomInt(min, max + 1)} (${min}–${max})`)

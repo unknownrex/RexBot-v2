@@ -22,12 +22,14 @@ export function participantsByJid(metadata) {
   return map
 }
 
-export async function resolvePnJid(sock, chatJid, jid) {
+// groupMetadata is a network round trip, so callers resolving several
+// participants in one go should fetch it once and pass the cached result here.
+export async function resolvePnJid(sock, chatJid, jid, metadata) {
   const mapped = toPnJid(jid)
   if (mapped?.endsWith('@s.whatsapp.net')) return mapped
   try {
-    const metadata = await sock.groupMetadata(chatJid)
-    const p = participantsByJid(metadata).get(mapped)
+    const md = metadata || (await sock.groupMetadata(chatJid))
+    const p = participantsByJid(md).get(mapped)
     const pn = p?.phoneNumber || p?.pn
     if (pn) return pn.endsWith('@s.whatsapp.net') ? pn : `${pn}@s.whatsapp.net`
   } catch {
@@ -36,6 +38,22 @@ export async function resolvePnJid(sock, chatJid, jid) {
   return mapped
 }
 
-export function displayNameFor(sock, jid, fallback) {
-  return fallback || jid?.split('@')[0] || jid
+// Prefer the name WhatsApp knows for this user over the raw digits.
+// `sock` and `metadata` are optional so this stays safe to call bare.
+export function displayNameFor(sock, jid, fallback, metadata) {
+  if (fallback) return fallback
+  const store = sock?.store?.contacts
+  const mapped = toPnJid(jid)
+  const fromStore =
+    store?.get?.(jid)?.notify ||
+    store?.get?.(jid)?.name ||
+    (mapped && store?.get?.(mapped)?.notify) ||
+    (mapped && store?.get?.(mapped)?.name)
+  if (fromStore) return fromStore
+  if (metadata) {
+    const p = participantsByJid(metadata).get(jid) || participantsByJid(metadata).get(mapped)
+    const name = p?.notify || p?.name
+    if (name) return name
+  }
+  return jid?.split('@')[0] || jid
 }

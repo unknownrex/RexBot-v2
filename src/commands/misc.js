@@ -7,6 +7,11 @@ export const miscCommands = [
     icon: '🏓',
     usage: '.ping',
     description: 'Check if the bot is online.',
-    exec: (ctx) => sendText(ctx, `pong · ${new Date().toISOString()}`),
+    async exec(ctx) {
+      const started = Date.now()
+      const key = await sendText(ctx, 'Pinging…')
+      // Local dispatch latency, not network round-trip time to WhatsApp.
+      await sendText(ctx, `*Latency*: ${Date.now() - started}ms`, key)
+    },
   },
 ]
