@@ -3,8 +3,10 @@ import { sendText } from '../lib/reply.js'
 export const miscCommands = [
   {
     name: 'ping',
+    category: 'misc',
+    icon: '🏓',
     usage: '.ping',
     description: 'Check if the bot is online.',
-    exec: ({ sock, jid, msg }) => sendText(sock, jid, `pong 🏓 ${new Date().toISOString()}`, msg),
+    exec: (ctx) => sendText(ctx, `pong · ${new Date().toISOString()}`),
   },
 ]

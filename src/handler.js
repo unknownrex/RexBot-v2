@@ -9,6 +9,7 @@ import { CONFIG } from './config.js'
 import logger from './logger.js'
 import { extractText, getContextInfo, getMessageType, isMediaType, wrapQuoted } from './lib/media.js'
 import { COMMANDS } from './commands/index.js'
+import { sendError } from './lib/reply.js'
 
 const lastRun = new Map()
 
@@ -39,18 +40,6 @@ export async function handleMessage(sock, msg) {
   const command = COMMANDS.get(parsed.name)
   if (!command) return
 
-  if (command.groupOnly && !isGroup) {
-    await sock
-      .sendMessage(jid, { text: '❌ This command only works in groups.' }, { quoted: msg })
-      .catch(() => {})
-    return
-  }
-
-  const cooldownKey = `${command.name}:${jid}`
-  const now = Date.now()
-  if (now - (lastRun.get(cooldownKey) || 0) < (command.cooldownMs ?? CONFIG.cooldownMs)) return
-  lastRun.set(cooldownKey, now)
-
   const contextInfo = getContextInfo(msg)
   const quotedContent = contextInfo.quotedMessage || null
   const quotedType = quotedContent ? getContentType(quotedContent) : null
@@ -68,18 +57,27 @@ export async function handleMessage(sock, msg) {
     text: parsed.argText,
     args: parsed.args,
     type: getMessageType(msg),
+    cmd: command,
     mentionedJids: contextInfo.mentionedJid || [],
     quoted: quotedMsg
       ? { msg: quotedMsg, content: quotedContent, type: quotedType, sender: contextInfo.participant || null }
       : null,
   }
 
+  if (command.groupOnly && !isGroup) {
+    await sendError(ctx, 'This command only works in groups.').catch(() => {})
+    return
+  }
+
+  const cooldownKey = `${command.name}:${jid}`
+  const now = Date.now()
+  if (now - (lastRun.get(cooldownKey) || 0) < (command.cooldownMs ?? CONFIG.cooldownMs)) return
+  lastRun.set(cooldownKey, now)
+
   try {
     await command.exec(ctx)
   } catch (err) {
     logger.error({ err: err.message, cmd: command.name }, 'command failed')
-    await sock
-      .sendMessage(jid, { text: `❌ Something went wrong: ${err.message}` }, { quoted: msg })
-      .catch(() => {})
+    await sendError(ctx, 'Something went wrong. Please try again.').catch(() => {})
   }
 }

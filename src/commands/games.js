@@ -33,6 +33,8 @@ export const gameCommands = [
   {
     name: 'dice',
     aliases: ['d'],
+    category: 'games',
+    icon: '🎲',
     usage: '.dice [sides]',
     description: 'Roll a die (default 6 sides, max 100).',
     async exec(ctx) {
@@ -40,20 +42,24 @@ export const gameCommands = [
       const value = randomInt(1, sides + 1)
       const svg = diceSvg(value, sides)
       const png = await sharp(Buffer.from(svg)).png().toBuffer()
-      await sendImage(ctx.sock, ctx.jid, png, `🎲 ${value} (d${sides})`, ctx.msg)
+      await sendImage(ctx, png, `*Rolled*: ${value} (d${sides})`)
     },
   },
   {
     name: 'coin',
+    category: 'games',
+    icon: '🪙',
     usage: '.coin',
     description: 'Flip a coin.',
     async exec(ctx) {
-      const result = randomInt(2) === 0 ? 'Heads 🪙' : 'Tails 🪙'
-      await sendText(ctx.sock, ctx.jid, result, ctx.msg)
+      const result = randomInt(2) === 0 ? 'Heads' : 'Tails'
+      await sendText(ctx, `*Result*: ${result}`)
     },
   },
   {
     name: 'random',
+    category: 'games',
+    icon: '🎯',
     usage: '.random [min] [max]',
     description: 'Random integer (default range 1–100).',
     async exec(ctx) {
@@ -66,10 +72,10 @@ export const gameCommands = [
         max = Math.floor(Number(ctx.args[0]))
       }
       if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
-        await sendError(ctx.sock, ctx.jid, 'Usage: `.random [min] [max]` with min < max.', ctx.msg)
+        await sendError(ctx, 'Usage: `.random [min] [max]` with min < max.')
         return
       }
-      await sendText(ctx.sock, ctx.jid, `🎲 ${randomInt(min, max + 1)} (${min}–${max})`, ctx.msg)
+      await sendText(ctx, `*Result*: ${randomInt(min, max + 1)} (${min}–${max})`)
     },
   },
 ]

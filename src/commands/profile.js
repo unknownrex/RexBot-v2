@@ -1,10 +1,12 @@
 import { displayNameFor, resolvePnJid } from '../lib/jid.js'
-import { sendError, sendImage, sendText } from '../lib/reply.js'
+import { sendError, sendImage, sendWarn } from '../lib/reply.js'
 
 export const profileCommands = [
   {
     name: 'avatar',
     aliases: ['pp', 'profilepic'],
+    category: 'profile',
+    icon: '🖼️',
     usage: '.avatar @user',
     description: 'Fetch the profile picture of mentioned users (or yours).',
     async exec(ctx) {
@@ -29,15 +31,15 @@ export const profileCommands = [
             }
           }
           if (!url) {
-            await sendText(ctx.sock, ctx.jid, `No profile picture for ${displayNameFor(ctx.sock, target)}.`, ctx.msg)
+            await sendWarn(ctx, `No profile picture for ${displayNameFor(ctx.sock, target)}.`)
             continue
           }
           const res = await fetch(url)
           if (!res.ok) throw new Error(`download failed (${res.status})`)
           const buffer = Buffer.from(await res.arrayBuffer())
-          await sendImage(ctx.sock, ctx.jid, buffer, `Profile picture: ${displayNameFor(ctx.sock, target)}`, ctx.msg)
+          await sendImage(ctx, buffer, `*Profile picture*: ${displayNameFor(ctx.sock, target)}`)
         } catch (err) {
-          await sendError(ctx.sock, ctx.jid, `Could not fetch avatar: ${err.message}`, ctx.msg)
+          await sendError(ctx, `Could not fetch avatar: ${err.message}`)
         }
       }
     },

@@ -4,6 +4,8 @@ export const groupCommands = [
   {
     name: 'ginfo',
     groupOnly: true,
+    category: 'group',
+    icon: '🛡️',
     usage: '.ginfo',
     description: 'Show group information.',
     async exec(ctx) {
@@ -19,15 +21,14 @@ export const groupCommands = [
       )
       const role = me?.admin ? '👑 Admin' : '👤 Member'
       const lines = [
-        '*Group info*',
-        `📛 Name: ${metadata.subject}`,
-        `🆔 ID: ${ctx.jid.split('@')[0]}`,
-        `👥 Members: ${participants.length}`,
-        `🛡 Admins: ${admins.length}`,
-        `🔑 Your role: ${role}`,
-        metadata.desc ? `📝 Description: ${metadata.desc}` : null,
+        `📛 *Name*: ${metadata.subject}`,
+        `🆔 *ID*: ${ctx.jid.split('@')[0]}`,
+        `👥 *Members*: ${participants.length}`,
+        `🛡️ *Admins*: ${admins.length}`,
+        `🔑 *Your role*: ${role}`,
+        metadata.desc ? `📝 *Description*: ${metadata.desc}` : null,
       ].filter(Boolean)
-      await sendText(ctx.sock, ctx.jid, lines.join('\n'), ctx.msg)
+      await sendText(ctx, lines.join('\n'))
     },
   },
 ]
