@@ -1,4 +1,5 @@
 import { displayNameFor, resolvePnJid } from '../lib/jid.js'
+import logger from '../logger.js'
 import { sendError, sendImage, sendWarn } from '../lib/reply.js'
 
 const ME = 'me'
@@ -73,7 +74,8 @@ export const profileCommands = [
             const buffer = Buffer.from(await res.arrayBuffer())
             await sendImage(ctx, buffer, name)
           } catch (err) {
-            await sendError(ctx, `Could not fetch avatar for ${name}: ${err.message}`)
+            logger.warn({ err: err.message }, 'avatar fetch failed')
+            await sendError(ctx, `Could not fetch avatar for ${name}.`)
           }
         }),
       )

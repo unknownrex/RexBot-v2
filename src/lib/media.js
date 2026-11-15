@@ -47,12 +47,46 @@ export function getContextInfo(msg) {
 
 export const wrapQuoted = (key, message) => ({ key, message })
 
+// The media URL comes from the message proto, which the sender controls, so
+// without this check a crafted message makes the VPS fetch any host it can
+// reach (localhost, cloud metadata, internal services).
+const MEDIA_HOST = /(^|\.)whatsapp\.net$/
+
+function assertMediaHost(msg, type) {
+  const content = msg?.message?.[type]
+  const url = content?.url
+  if (!url) return
+  let host
+  try {
+    host = new URL(url).hostname
+  } catch {
+    throw new Error('media has an invalid URL')
+  }
+  if (!MEDIA_HOST.test(host)) throw new Error('media host is not allowed')
+}
+
+// Streamed rather than buffered so an oversized file is rejected while it is
+// still arriving instead of after the whole thing sits in memory.
 export async function downloadMedia(sock, msg, type = getMessageType(msg)) {
   if (!type || !isMediaType(type)) return null
-  const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger })
-  if (buffer.length > CONFIG.maxMediaBytes) {
-    throw new Error('media file is too large (max 64 MB)')
+  assertMediaHost(msg, type)
+
+  const stream = await downloadMediaMessage(msg, 'stream', {}, { logger })
+  const chunks = []
+  let total = 0
+  try {
+    for await (const chunk of stream) {
+      total += chunk.length
+      if (total > CONFIG.maxMediaBytes) {
+        throw new Error(`media file is too large (max ${CONFIG.maxMediaBytes / 1024 / 1024} MB)`)
+      }
+      chunks.push(chunk)
+    }
+  } finally {
+    stream.destroy?.()
   }
+
+  const buffer = Buffer.concat(chunks)
   const ft = await fileTypeFromBuffer(buffer)
   return { buffer, mime: ft?.mime, ext: ft?.ext }
 }

@@ -12,33 +12,20 @@ import { COMMANDS } from './commands/index.js'
 import { sendError } from './lib/reply.js'
 
 const lastRun = new Map()
-const rateBuckets = new Map()
 
-// Single-slot throttle for most commands. Commands that declare `batchLimit`
-// get a token bucket instead, so a multi-image send (which arrives as several
-// message events within milliseconds) is not swallowed by one shared window.
-function claimRateSlot(command, jid) {
+// Per-command cooldown. Commands that set `noCooldown` skip it entirely, so a
+// multi-image send converts every item instead of being throttled.
+function claimRateSlot(command, jid, sender, isGroup) {
+  if (command.noCooldown) return true
   const windowMs = command.cooldownMs ?? CONFIG.cooldownMs
-  const key = `${command.name}:${jid}`
+  // Keyed on the sender in groups so one member cannot spend the whole
+  // chat's budget and starve everyone else.
+  const key = `${command.name}:${isGroup ? sender : jid}`
   const now = Date.now()
-  const limit = command.batchLimit ?? 1
 
-  if (limit <= 1) {
-    if (now - (lastRun.get(key) || 0) < windowMs) return false
-    lastRun.set(key, now)
-    return true
-  }
-
-  const bucket = rateBuckets.get(key)
-  if (!bucket || now - bucket.startedAt >= windowMs) {
-    rateBuckets.set(key, { startedAt: now, count: 1 })
-    return true
-  }
-  if (bucket.count < limit) {
-    bucket.count += 1
-    return true
-  }
-  return false
+  if (now - (lastRun.get(key) || 0) < windowMs) return false
+  lastRun.set(key, now)
+  return true
 }
 
 function parseCommand(text, prefix) {
@@ -97,7 +84,7 @@ export async function handleMessage(sock, msg) {
     return
   }
 
-  if (!claimRateSlot(command, jid)) return
+  if (!claimRateSlot(command, jid, sender, isGroup)) return
 
   try {
     await command.exec(ctx)

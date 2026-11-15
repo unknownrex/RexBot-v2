@@ -13,12 +13,12 @@ const commandHeader = (ctx) => ({
   title: ctx?.cmd?.name || 'RexBot',
 })
 
-const send = (ctx, content, edit) => {
+const send = (ctx, content) => {
   const { sock, jid, msg } = ctx
-  return sock.sendMessage(jid, edit ? { text: content, edit } : { text: content }, { quoted: msg })
+  return sock.sendMessage(jid, { text: content }, { quoted: msg })
 }
 
-export const sendText = (ctx, text, edit) => send(ctx, compose(commandHeader(ctx).icon, commandHeader(ctx).title, text), edit)
+export const sendText = (ctx, text) => send(ctx, compose(commandHeader(ctx).icon, commandHeader(ctx).title, text))
 
 export const sendInfo = (ctx, text) => {
   const h = header(ctx, 'info')

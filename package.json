@@ -5,19 +5,26 @@
   "type": "module",
   "main": "src/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test test/media.test.js test/limiter.test.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc14",
     "dotenv": "^16.4.5",
     "ffmpeg-static": "^5.2.0",
-    "file-type": "^19.0.0",
+    "file-type": "^21.3.4",
+    "music-metadata": "^11.16.1",
     "node-webpmux": "^3.2.0",
     "pino": "^9.0.0",
     "qrcode-terminal": "^0.12.0",
-    "sharp": "^0.33.0"
+    "sharp": "^0.35.5"
+  },
+  "overrides": {
+    "@whiskeysockets/baileys": {
+      "music-metadata": "$music-metadata"
+    }
   }
 }

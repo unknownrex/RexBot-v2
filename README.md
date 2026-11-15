@@ -40,7 +40,8 @@ Scan the QR code shown in the terminal with WhatsApp (Linked Devices). The sessi
 | `PACK_NAME` | `RexBot` | Sticker pack name embedded in created stickers |
 | `PACK_PUBLISHER` | `RexBot Team` | Sticker pack publisher |
 | `MAX_VIDEO_SECONDS` | `6` | Max length of a video converted to a sticker |
-| `COOLDOWN_MS` | `3000` | Per-command cooldown |
+| `COOLDOWN_MS` | `3000` | Per-command cooldown (media commands are exempt) |
+| `MEDIA_CONCURRENCY` | `4` | Max simultaneous media conversions; extras queue |
 | `FFMPEG_TIMEOUT_MS` | `30000` | ffmpeg job timeout |
 
 ## Project layout
