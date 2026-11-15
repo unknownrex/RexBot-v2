@@ -1,3 +1,5 @@
+import { isJidGroup } from '@whiskeysockets/baileys'
+
 const lidToPn = new Map()
 
 export function registerLidMapping(lid, pn) {
@@ -27,6 +29,9 @@ export function participantsByJid(metadata) {
 export async function resolvePnJid(sock, chatJid, jid, metadata) {
   const mapped = toPnJid(jid)
   if (mapped?.endsWith('@s.whatsapp.net')) return mapped
+  // Only groups can answer groupMetadata; asking for a DM jid hangs until the
+  // socket query timeout.
+  if (!metadata && !isJidGroup(chatJid)) return mapped
   try {
     const md = metadata || (await sock.groupMetadata(chatJid))
     const p = participantsByJid(md).get(mapped)

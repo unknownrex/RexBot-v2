@@ -1,3 +1,4 @@
+import { isJidGroup } from '@whiskeysockets/baileys'
 import { displayNameFor, resolvePnJid } from '../lib/jid.js'
 import logger from '../logger.js'
 import { sendError, sendImage, sendWarn } from '../lib/reply.js'
@@ -21,11 +22,6 @@ function resolveTargets(ctx) {
 
 async function fetchAvatar(ctx, target, metadata) {
   const pnJid = await resolvePnJid(ctx.sock, ctx.jid, target, metadata)
-
-  // The contact store may already hold the picture URL; if so we skip the
-  // network round trip for it entirely.
-  const cached = ctx.sock?.store?.contacts?.get?.(target)?.imgUrl
-  if (cached && cached !== 'changed') return cached
 
   const url = await ctx.sock.profilePictureUrl(pnJid, 'image')
   if (url) return url
@@ -51,11 +47,15 @@ export const profileCommands = [
       const targets = resolved.targets
 
       // One metadata fetch shared by every target, and only when we need it.
+      // groupMetadata on a non-group jid never gets an answer, so it would
+      // stall until the socket query timeout.
       let metadata = null
-      try {
-        metadata = await ctx.sock.groupMetadata(ctx.jid)
-      } catch {
-        // DM or lookup failed; name resolution falls back to the store
+      if (isJidGroup(ctx.jid)) {
+        try {
+          metadata = await ctx.sock.groupMetadata(ctx.jid)
+        } catch {
+          // lookup failed; name resolution falls back to the store
+        }
       }
 
       await Promise.all(
@@ -69,7 +69,7 @@ export const profileCommands = [
               await sendWarn(ctx, `Couldn't retrieve a picture for ${name} — it may be private or unset.`)
               return
             }
-            const res = await fetch(url)
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
             if (!res.ok) throw new Error(`download failed (${res.status})`)
             const buffer = Buffer.from(await res.arrayBuffer())
             await sendImage(ctx, buffer, name)

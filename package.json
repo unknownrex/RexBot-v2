@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test test/media.test.js test/limiter.test.js"
+    "test": "node --test test/media.test.js test/limiter.test.js test/jid.test.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc14",
