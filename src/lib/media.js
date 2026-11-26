@@ -14,6 +14,11 @@ export function isMediaType(type) {
   return MEDIA_TYPES.has(type)
 }
 
+// Audio is download-only: .s must not try to turn a voice note into a sticker.
+export function isAudioType(type) {
+  return type === 'audioMessage'
+}
+
 export function getMessageType(msg) {
   if (!msg?.message) return null
   return getContentType(msg.message)
@@ -68,7 +73,7 @@ function assertMediaHost(msg, type) {
 // Streamed rather than buffered so an oversized file is rejected while it is
 // still arriving instead of after the whole thing sits in memory.
 export async function downloadMedia(sock, msg, type = getMessageType(msg)) {
-  if (!type || !isMediaType(type)) return null
+  if (!type || !(isMediaType(type) || isAudioType(type))) return null
   assertMediaHost(msg, type)
 
   const stream = await downloadMediaMessage(msg, 'stream', {}, { logger })
