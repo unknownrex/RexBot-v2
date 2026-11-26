@@ -73,11 +73,11 @@ export const stickerCommands = [
         // the size ladder actually produced; otherwise a 6s animation would
         // carry 10s of sound, or a clipped 3s fallback would not match.
         const sticker = await withConversionSlot(() => toSticker(media.buffer))
-        // Round up so the clip is never cut mid-frame; the encoder trims anyway.
+        // Exact milliseconds, not whole seconds: ceil() gave a 9.2s sticker 10s
+        // of audio, so the sound ran past the last frame and drifted.
         const ms = await webpDuration(sticker.buffer)
-        const stickerDuration = Math.max(1, Math.ceil(ms / 1000))
         // A static sticker has no timeline, so it keeps the full clip.
-        const maxSeconds = sticker.animated ? Math.min(stickerDuration, CONFIG.soundMaxSeconds) : CONFIG.soundMaxSeconds
+        const maxSeconds = sticker.animated ? Math.min(ms / 1000, CONFIG.soundMaxSeconds) : CONFIG.soundMaxSeconds
         const sound = await withConversionSlot(async () => {
           if (reply) {
             const audio = await downloadMedia(ctx.sock, reply, 'audioMessage')

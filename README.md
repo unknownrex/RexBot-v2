@@ -107,7 +107,7 @@ Everything is optional — copy `.env.example` to `.env` and edit.
 | `BOT_NAME` | `RexBot` | Name shown in the linked-device list |
 | `PACK_NAME` | `RexBot` | Sticker pack name |
 | `PACK_PUBLISHER` | `RexBot Team` | Sticker pack publisher |
-| `MAX_VIDEO_SECONDS` | `10` | Longest animated sticker; hard-clamped to WhatsApp's 10 s limit |
+| `MAX_VIDEO_SECONDS` | `10` | Longest source clip considered for a sticker; encoding caps at 9 s, see below |
 | `SOUND_MAX_SECONDS` | `10` | Longest audio on a static sticker; animated stickers use the clip's own length |
 | `COOLDOWN_MS` | `3000` | Per-command cooldown (media commands exempt) |
 | `MEDIA_CONCURRENCY` | `4` | Simultaneous conversions; extras queue rather than fail |
@@ -150,6 +150,21 @@ button that never resolves. `fitAnimated()` walks an 18-step ladder and takes th
 Length goes last on purpose: the user asked for a clip, so quality and smoothness are spent first.
 Audio is trimmed to the *measured* duration of the encoded WebP, so it stays in sync at every step.
 
+Stickers are encoded to **9 s / 99 frames**, not 10 s. WhatsApp documents "10 seconds or less", but a
+sticker of exactly 10 000 ms (110 frames at 11 fps) stops looping on the client while the sound keeps
+playing. 9 s stays inside the documented limit on both counts.
+
+### Sticker logging
+
+Every conversion logs one line naming the step that fitted:
+
+```
+INFO: sticker encoded  quality: 60  fps: 11  size: 320  seconds: 9  frames: 99  kb: 410  step: 7/22
+```
+
+`seconds` and `frames` are read back from the encoded file, so they are what the recipient gets, not
+what was requested. Set `LOG_LEVEL=debug` to see every attempt.
+
 ---
 
 ## Development
@@ -170,4 +185,8 @@ audio-field patch, Opus trimming, silent-video detection, the size cap, and the 
   onto the protobuf encoder at runtime. Clients that ignore it show a normal sticker — the audio
   disappears silently, nothing breaks. Animated WebP *with* audio is unverified on every client.
 - **No build step.** Plain ESM; `node src/index.js` runs what you wrote.
+- **`regular_low blocked on missing key` at startup is benign.** Baileys parks that app-state
+  collection, then receives the key via `APP_STATE_SYNC_KEY_SHARE` and syncs. RexBot reads no app
+  state, so nothing is affected. If it repeats every launch, delete `auth/app-state-sync-version-*.json`
+  (keep the `app-state-sync-key-*.json` files) to force a fresh snapshot.
 - **Gitignored:** `auth/`, `temp/`, `node_modules/`, `docs/`, `.env`.

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import ffmpegStatic from 'ffmpeg-static'
+import sharp from 'sharp'
 import { proto } from '@whiskeysockets/baileys'
 
 const { patchSoundSticker, toOpus, audioFromVideo } = await import('../src/lib/sound.js')
@@ -99,14 +100,25 @@ test('a busy video is compressed under the animated cap after packing', async ()
   )
   console.log(`# busy video landed at ${Math.round(sticker.buffer.length / 1024)} KB`)
   assert.equal(sticker.buffer.subarray(8, 12).toString(), 'WEBP')
-  // Length is the last thing the ladder gives up: a 10s source must survive as
-  // a 10s sticker rather than being cut to fit the byte cap.
+  // Length is the last thing the ladder gives up, but the encoder stays under
+  // WhatsApp's "10 seconds or less" on both counts: exactly 10000ms stopped
+  // looping on the client while the sound kept playing.
   const ms = await webpDuration(sticker.buffer)
-  assert.ok(ms > 5000, `sticker was cut to ${(ms / 1000).toFixed(1)}s, expected the full clip`)
+  assert.ok(ms > 5000, `sticker was cut to ${(ms / 1000).toFixed(1)}s, expected most of the clip`)
+  assert.ok(ms <= CONFIG.stickerMaxSeconds * 1000, `sticker is ${(ms / 1000).toFixed(2)}s, cap is ${CONFIG.stickerMaxSeconds}s`)
+  // Frame rate must survive compression: dropping it was what made motion
+  // stutter. Pixels and length are spent instead.
+  const { delay } = await sharp(sticker.buffer, { animated: true }).metadata()
+  const effectiveFps = 1000 / Math.max(...delay)
+  assert.ok(effectiveFps >= 9.5, `sticker runs at ${effectiveFps.toFixed(1)}fps, floor is 10`)
+  console.log(`# busy video runs at ${effectiveFps.toFixed(1)}fps`)
+  // Clients look to freeze stickers that sit right on the 10s / 100-frame edges.
+  const { pages } = await sharp(sticker.buffer, { animated: true }).metadata()
+  assert.ok(pages <= 99, `sticker has ${pages} frames, must stay under 100`)
 })
 
 // High-entropy noise so every quality step fails and the ladder has to fall
-// through frame rate and resolution to keep the full duration.
+// through resolution to keep the full duration and frame rate.
 async function busyVideo() {
   const file = path.join(tmpdir(), `sound-busy-${process.pid}.mp4`)
   try {

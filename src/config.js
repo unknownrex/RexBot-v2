@@ -16,8 +16,9 @@ export const CONFIG = {
   },
   packName: process.env.PACK_NAME || 'RexBot',
   packPublisher: process.env.PACK_PUBLISHER || 'RexBot Team',
-  // WhatsApp caps animated stickers at 10s. Also the ceiling for every animated
-  // sticker we build, video or GIF.
+  // WhatsApp caps animated stickers at 10s and documents it as "10 seconds or
+  // less", so this stays the user-facing ceiling. The encoder clamps lower, see
+  // stickerMaxSeconds.
   maxVideoSeconds: Math.min(int(process.env.MAX_VIDEO_SECONDS, 10), 10),
   cooldownMs: int(process.env.COOLDOWN_MS, 3000),
   // How many media conversions may run at once. Not a rate limit: extra
@@ -28,11 +29,15 @@ export const CONFIG = {
   authDir: 'auth',
   tempDir: 'temp',
   maxMediaBytes: 64 * 1024 * 1024,
-  // WhatsApp caps: 100 KB static, 500 KB animated. Encoded under 400 KB for
+  // WhatsApp caps: 100 KB static, 500 KB animated. Encoded under 460 KB for
   // headroom, since anything over the cap arrives undownloadable.
   staticStickerMaxBytes: 100 * 1024,
-  animatedStickerMaxBytes: 400 * 1024,
+  animatedStickerMaxBytes: 460 * 1024,
   stickerSize: 512,
+  // WhatsApp documents "10 seconds or less", but a sticker of exactly 10000ms
+  // (110 frames at 11fps) stops looping on the client while the sound keeps
+  // running. 9s is 99 frames and stays inside the documented limit on both counts.
+  stickerMaxSeconds: 9,
   soundMaxSeconds: int(process.env.SOUND_MAX_SECONDS, 10),
   fps: 11,
 }
