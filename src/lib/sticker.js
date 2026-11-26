@@ -62,7 +62,8 @@ async function staticToSticker(buf) {
   let size = CONFIG.stickerSize
   const cap = CONFIG.staticStickerMaxBytes
   for (;;) {
-    const out = await encodeStatic(buf, quality, size)
+    // Checked after packing: the EXIF header adds a few hundred bytes.
+    const out = await withPack(await encodeStatic(buf, quality, size))
     if (out.length <= cap) return out
     if (quality > 20) {
       quality -= 15
@@ -77,45 +78,70 @@ async function staticToSticker(buf) {
   }
 }
 
-async function gifToSticker(buf) {
-  const cap = CONFIG.animatedStickerMaxBytes
-  for (let quality = 72; quality >= 25; quality -= 18) {
-    const out = await sharp(buf, { animated: true, limitInputPixels: 0 })
-      .resize({ width: CONFIG.stickerSize, height: CONFIG.stickerSize, fit: 'inside' })
-      .webp({ quality })
-      .toBuffer()
-    if (out.length <= cap) return out
-  }
-  return sharp(buf, { animated: true, limitInputPixels: 0 })
-    .resize({ width: CONFIG.stickerSize, height: CONFIG.stickerSize, fit: 'inside' })
-    .webp({ quality: 25 })
-    .toBuffer()
-}
-
-async function videoToSticker(buf, ext) {
-  const input = await writeTemp(ext)
+// One encode attempt at a given quality/fps/size. Both animated sources share
+// this so the size ladder is written once.
+async function encodeAnimated(input, { quality, fps, size, seconds }) {
   const output = await writeTemp('webp')
-  const extra = []
-  await writeFile(input, buf)
   try {
     await runFfmpeg([
       '-y',
       '-i',
       input,
       '-t',
-      String(CONFIG.maxVideoSeconds),
+      String(seconds),
       '-vf',
-      `scale=${CONFIG.stickerSize}:${CONFIG.stickerSize}:force_original_aspect_ratio=decrease,fps=${CONFIG.fps},pad=${CONFIG.stickerSize}:${CONFIG.stickerSize}:(ow-iw)/2:(oh-ih)/2:color=#00000000,format=yuva420p`,
+      `scale=${size}:${size}:force_original_aspect_ratio=decrease,fps=${fps},pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=#00000000,format=yuva420p`,
       '-loop',
       '0',
       '-an',
       '-c:v',
       'libwebp',
       '-quality',
-      '80',
+      String(quality),
       output,
     ])
     return await readFile(output)
+  } finally {
+    await cleanup(output)
+  }
+}
+
+// Spends quality first, then frame rate, then resolution, and only shortens the
+// clip as a last resort. Duration last is deliberate: length is what the user
+// asked for, and every other lever keeps the clip intact. The cap is WhatsApp's
+// 500 KB animated limit, so anything over it arrives undownloadable.
+async function fitAnimated(input, seconds) {
+  const cap = CONFIG.animatedStickerMaxBytes
+  const { stickerSize, fps } = CONFIG
+  const steps = [
+    ...[80, 60, 40, 25].map((quality) => ({ quality, fps, size: stickerSize, seconds })),
+    ...[8, 6].map((f) => ({ quality: 60, fps: f, size: stickerSize, seconds })),
+    ...[448, 384, 320, 256].map((size) => ({ quality: 60, fps: 6, size, seconds })),
+    ...[50, 40].map((quality) => ({ quality, fps: 6, size: 256, seconds })),
+    // Cut length only when 10s cannot fit at the smallest usable framing. Audio
+    // is trimmed to the measured result, so sync holds at any cut.
+    ...[8, 6, 4, 3, 2, 1].map((s) => ({ quality: 40, fps: 6, size: 256, seconds: Math.min(s, seconds) })),
+  ]
+  let out
+  for (const step of steps) {
+    out = await withPack(await encodeAnimated(input, step))
+    // Checked after packing: the EXIF header adds a few hundred bytes.
+    if (out.length <= cap) return out
+  }
+  return out
+}
+
+// One 10s ceiling for every animated source, matching WhatsApp's limit.
+async function gifToSticker(buf) {
+  return fitAnimated(buf, CONFIG.maxVideoSeconds)
+}
+
+async function videoToSticker(buf, ext, seconds = CONFIG.maxVideoSeconds) {
+  const input = await writeTemp(ext)
+  const extra = []
+  await writeFile(input, buf)
+  try {
+    return await fitAnimated(input, seconds)
   } catch (err) {
     logger.warn({ err: err.message }, 'video->webp failed, falling back to first frame')
     const frameFile = await writeTemp('png')
@@ -135,7 +161,7 @@ async function videoToSticker(buf, ext) {
     const frame = await readFile(frameFile)
     return await staticToSticker(frame)
   } finally {
-    await cleanup(input, output, ...extra)
+    await cleanup(input, ...extra)
   }
 }
 
@@ -143,24 +169,31 @@ async function handleWebp(buf) {
   const info = await detectWebp(buf)
   if (info?.hasExif) return { buffer: buf, animated: info.animated }
   if (info?.animated) {
-    return { buffer: await withPack(await gifToSticker(buf)), animated: true }
+    return { buffer: await gifToSticker(buf), animated: true }
   }
-  return { buffer: await withPack(await staticToSticker(buf)), animated: false }
+  return { buffer: await staticToSticker(buf), animated: false }
 }
 
-export async function toSticker(inputBuffer) {
+// Summed frame delays, so callers can trim audio to whatever the size ladder
+// actually produced instead of a fixed guess.
+export async function webpDuration(buffer) {
+  const { delay } = await sharp(buffer, { animated: true }).metadata()
+  return (delay || []).reduce((sum, ms) => sum + ms, 0)
+}
+
+export async function toSticker(inputBuffer, { seconds = CONFIG.maxVideoSeconds } = {}) {
   const ft = await fileTypeFromBuffer(inputBuffer)
   const mime = ft?.mime || ''
   if (mime === 'image/webp') return handleWebp(inputBuffer)
   if (mime === 'image/gif') {
-    return { buffer: await withPack(await gifToSticker(inputBuffer)), animated: true }
+    return { buffer: await gifToSticker(inputBuffer), animated: true }
   }
   if (mime.startsWith('image/')) {
-    return { buffer: await withPack(await staticToSticker(inputBuffer)), animated: false }
+    return { buffer: await staticToSticker(inputBuffer), animated: false }
   }
   if (mime.startsWith('video/')) {
     const ext = ft?.ext || 'mp4'
-    return { buffer: await withPack(await videoToSticker(inputBuffer, ext)), animated: true }
+    return { buffer: await videoToSticker(inputBuffer, ext, seconds), animated: true }
   }
   throw new Error(`unsupported media type: ${mime || 'unknown'}`)
 }

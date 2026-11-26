@@ -16,7 +16,9 @@ export const CONFIG = {
   },
   packName: process.env.PACK_NAME || 'RexBot',
   packPublisher: process.env.PACK_PUBLISHER || 'RexBot Team',
-  maxVideoSeconds: int(process.env.MAX_VIDEO_SECONDS, 6),
+  // WhatsApp caps animated stickers at 10s. Also the ceiling for every animated
+  // sticker we build, video or GIF.
+  maxVideoSeconds: Math.min(int(process.env.MAX_VIDEO_SECONDS, 10), 10),
   cooldownMs: int(process.env.COOLDOWN_MS, 3000),
   // How many media conversions may run at once. Not a rate limit: extra
   // requests queue and still complete, this only stops N simultaneous
@@ -26,10 +28,12 @@ export const CONFIG = {
   authDir: 'auth',
   tempDir: 'temp',
   maxMediaBytes: 64 * 1024 * 1024,
+  // WhatsApp caps: 100 KB static, 500 KB animated. Encoded under 400 KB for
+  // headroom, since anything over the cap arrives undownloadable.
   staticStickerMaxBytes: 100 * 1024,
-  animatedStickerMaxBytes: 250 * 1024,
+  animatedStickerMaxBytes: 400 * 1024,
   stickerSize: 512,
-  maxFrames: 100,
+  soundMaxSeconds: int(process.env.SOUND_MAX_SECONDS, 10),
   fps: 11,
 }
 
