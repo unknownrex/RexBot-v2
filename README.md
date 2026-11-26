@@ -1,71 +1,173 @@
-# RexBot-v2
+```
+██████╗ ███████╗██╗  ██╗██████╗  ██████╗ ████████╗    ██╗   ██╗██████╗
+██╔══██╗██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗╚══██╔══╝    ██║   ██║╚════██╗
+██████╔╝█████╗   ╚███╔╝ ██████╔╝██║   ██║   ██║       ██║   ██║ █████╔╝
+██╔══██╗██╔══╝   ██╔██╗ ██╔══██╗██║   ██║   ██║       ╚██╗ ██╔╝██╔═══╝
+██║  ██║███████╗██╔╝ ██╗██████╔╝╚██████╔╝   ██║        ╚████╔╝ ███████╗
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝  ╚═════╝    ╚═╝         ╚═══╝  ╚══════╝
+```
 
-A simple Node.js WhatsApp bot built on [Baileys v7](https://github.com/WhiskeySockets/Baileys). Converts media to stickers, stickers back to images, and adds a few fun/utility commands.
+# RexBot V2
 
-Product spec: [`docs/PRD.md`](docs/PRD.md)
+A WhatsApp bot for stickers, sound stickers, and small utilities — built on
+[Baileys v7](https://github.com/WhiskeySockets/Baileys), plain ESM JavaScript, no build step.
 
-## Features
+Send media, get a sticker. Send a video with sound and the sticker **plays audio** when tapped.
 
-- `.s` / `.sticker` — convert an image, GIF, or video into a sticker (send media with the caption, or reply to media). Videos are clipped to `MAX_VIDEO_SECONDS` (default 6 s).
-- `.toimg` / `.img` — convert a sticker back into an image (reply to the sticker). Static → PNG, animated → GIF.
-- `.dice [sides]` — roll a die (rendered image).
-- `.coin` — heads or tails.
-- `.random [min] [max]` — random integer (default 1–100).
-- `.avatar @user` / `.pp` — fetch the tagged user's profile picture (group & private; falls back to the replied user, or yourself).
-- `.ginfo` — group info (groups only).
-- `.ping` — liveness check.
-- `.help` — list all commands.
+> ⚠️ Unofficial API. Use it from a number you're willing to risk — see [Notes](#notes).
+
+---
+
+## Highlights
+
+### 🔊 Stickers that make noise
+
+`.ss` builds a sticker whose audio plays on tap. Two ways to feed it:
+
+- **Video with sound** — the clip's own audio track is used automatically.
+- **Anything + a replied voice note** — reply to an audio message with any image, GIF, or video.
+
+Audio longer than the animation is trimmed so sound and motion stay in sync, even when the size
+budget forces the clip shorter.
+
+### 🎨 Stickers that just work
+
+Every conversion is compressed to fit WhatsApp's real limits — animated stickers under 400 KB,
+static under 100 KB — by progressively trading quality, then frame rate, then resolution, and only
+cutting length as a last resort. Stickers always arrive downloadable, never as a placeholder with a
+broken download button.
+
+### 🧰 Batteries included
+
+Command registry with categories, per-command cooldowns, conversion concurrency limits, consistent
+themed replies, and terminal-friendly logging.
+
+---
+
+## Commands
+
+| Command | Aliases | What it does |
+|---|---|---|
+| `.s` | `.sticker` | Convert an image, GIF, or video into a sticker |
+| `.ss` | `.soundsticker` | Sticker that **plays sound** — video track or replied audio |
+| `.toimg` | `.img` | Sticker back to image — PNG when static, GIF when animated |
+| `.dice` | `.d` | Roll a six-sided die (rendered image) |
+| `.coin` | — | Heads or tails |
+| `.random [min] [max]` | — | Random integer, default 1–100 |
+| `.avatar [@user \| me]` | `.pp` | Fetch a profile picture — mention, reply, or `me` |
+| `.ginfo` | — | Group info *(groups only)* |
+| `.help` | — | Full command list, grouped by category |
+
+Send media **with** the command as caption, or **reply** to media with the command.
+
+```text
+.s      → sticker from the attached photo/video/GIF
+.ss     → same, but with sound
+.toimg  → reply to a sticker to get the image back
+```
+
+---
 
 ## Requirements
 
-- Node.js >= 20
-- A phone with WhatsApp (used once, to scan the sign-in QR)
+- **Node.js 22+** (ESM, `import ... with { type: 'json' }`)
+- **ffmpeg** — bundled via `ffmpeg-static`, nothing to install
+- A phone with WhatsApp, for the one-time QR scan
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # optional — defaults work fine
-node src/index.js
+cp .env.example .env    # optional, defaults work
+npm start
 ```
 
-Scan the QR code shown in the terminal with WhatsApp (Linked Devices). The session is saved in `auth/` and reused on restart.
+Scan the QR printed in the terminal (**WhatsApp → Linked Devices**). Credentials land in `auth/` and
+are reused on restart. On launch you'll see:
 
-## Config (env)
+```text
+██████╗ ███████╗██╗  ██╗██████╗  ██████╗ ████████╗    ██╗   ██╗██████╗
+██╔══██╗██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗╚══██╔══╝    ██║   ██║╚════██╗
+██████╔╝█████╗   ╚███╔╝ ██████╔╝██║   ██║   ██║       ██║   ██║ █████╔╝
+██╔══██╗██╔══╝   ██╔██╗ ██╔══██╗██║   ██║   ██║       ╚██╗ ██╔╝██╔═══╝
+██║  ██║███████╗██╔╝ ██╗██████╔╝╚██████╔╝   ██║        ╚████╔╝ ███████╗
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝  ╚═════╝    ╚═╝         ╚═══╝  ╚══════╝
+     v2.0.0 · prefix . · 9 commands
+```
+
+---
+
+## Configuration
+
+Everything is optional — copy `.env.example` to `.env` and edit.
 
 | Variable | Default | Description |
 |---|---|---|
 | `PREFIX` | `.` | Command prefix |
-| `BOT_NAME` | `RexBot` | Name shown in the WhatsApp browser session |
-| `PACK_NAME` | `RexBot` | Sticker pack name embedded in created stickers |
+| `BOT_NAME` | `RexBot` | Name shown in the linked-device list |
+| `PACK_NAME` | `RexBot` | Sticker pack name |
 | `PACK_PUBLISHER` | `RexBot Team` | Sticker pack publisher |
-| `MAX_VIDEO_SECONDS` | `6` | Max length of a video converted to a sticker |
-| `COOLDOWN_MS` | `3000` | Per-command cooldown (media commands are exempt) |
-| `MEDIA_CONCURRENCY` | `4` | Max simultaneous media conversions; extras queue |
-| `FFMPEG_TIMEOUT_MS` | `30000` | ffmpeg job timeout |
+| `MAX_VIDEO_SECONDS` | `10` | Longest animated sticker; hard-clamped to WhatsApp's 10 s limit |
+| `SOUND_MAX_SECONDS` | `10` | Longest audio on a static sticker; animated stickers use the clip's own length |
+| `COOLDOWN_MS` | `3000` | Per-command cooldown (media commands exempt) |
+| `MEDIA_CONCURRENCY` | `4` | Simultaneous conversions; extras queue rather than fail |
+| `FFMPEG_TIMEOUT_MS` | `30000` | Per-job ffmpeg timeout |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `LOG_PRETTY` | auto | Pretty in a terminal; set `false` to force JSON |
 
-## Project layout
+---
+
+## How it works
 
 ```
-src/
-|- index.js          entry: auth, socket, events, reconnect
-|- config.js         env + defaults
-|- logger.js         pino
-|- handler.js        message router + dispatch + cooldowns
-|- lib/              media.js, sticker.js, ffmpeg.js, exif.js, jid.js, reply.js
-|- commands/         index.js (registry), sticker.js, games.js, profile.js, group.js, misc.js
+message ──▶ handler.js        parse prefix, resolve command, cooldown
+        ──▶ commands/*.js      download media, call a lib
+        ──▶ lib/               convert, then reply
 ```
 
-## Deployment
+| Piece | Responsibility |
+|---|---|
+| `index.js` | Socket, auth, event wiring, auto-reconnect, banner |
+| `handler.js` | Router: parse, cooldown, dispatch, error replies |
+| `lib/sticker.js` | WebP pipeline + the size/duration ladder |
+| `lib/sound.js` | Ogg Opus encoding, video-track extraction, sound-sticker send |
+| `lib/ffmpeg.js` | `ffmpeg-static` spawn wrapper with timeout |
+| `lib/limiter.js` | Bounded conversion concurrency |
+| `lib/theme.js` | One visual dialect for every reply |
+| `lib/media.js` | Download + host validation, media type guards |
+
+### The size ladder
+
+WhatsApp rejects animated stickers over 500 KB and 10 s, which is why oversized ones show a download
+button that never resolves. `fitAnimated()` walks an 18-step ladder and takes the first result under
+**400 KB**, moving to the next lever only when the current one fails:
+
+1. **Quality** 80 → 25 at 512 px
+2. **Frame rate** 11 → 8 → 6 fps
+3. **Resolution** 448 → 256 px
+4. **Length** 10 → 1 s (last resort only)
+
+Length goes last on purpose: the user asked for a clip, so quality and smoothness are spent first.
+Audio is trimmed to the *measured* duration of the encoded WebP, so it stays in sync at every step.
+
+---
+
+## Development
 
 ```bash
-npm install && node src/index.js
+npm test        # node:test, no framework
 ```
 
-Persist with `pm2` or `systemd`. Delete `auth/` and restart to link a different WhatsApp account.
+Tests generate their own ffmpeg fixtures, so no binary assets live in the repo. Covers the protobuf
+audio-field patch, Opus trimming, silent-video detection, the size cap, and the sticker helpers.
 
-## Notes / risks
+---
 
-- Uses an unofficial WhatsApp API — heavy or spammy usage can get an account warned/banned. Cooldowns are enabled by default.
-- Baileys v7 is ESM-only; this project is plain JavaScript with `import`. No build step.
-- Media is processed in `temp/` and cleaned up after each request. `auth/`, `temp/`, `node_modules/`, and `.env` are gitignored.
+## Notes
+
+- **Unofficial.** Baileys is not Meta-approved. Cooldowns are on by default; don't spam or bulk-send.
+- **Sound stickers rely on an undocumented field.** `StickerMessage` carries audio in field 26, patched
+  onto the protobuf encoder at runtime. Clients that ignore it show a normal sticker — the audio
+  disappears silently, nothing breaks. Animated WebP *with* audio is unverified on every client.
+- **No build step.** Plain ESM; `node src/index.js` runs what you wrote.
+- **Gitignored:** `auth/`, `temp/`, `node_modules/`, `docs/`, `.env`.

@@ -6,8 +6,9 @@ import makeWASocket, {
   Browsers,
 } from '@whiskeysockets/baileys'
 import qrcode from 'qrcode-terminal'
+import { printBanner } from './banner.js'
 import { CONFIG } from './config.js'
-import logger from './logger.js'
+import logger, { socketLogger } from './logger.js'
 import { handleMessage } from './handler.js'
 import { registerLidMapping } from './lib/jid.js'
 
@@ -25,6 +26,7 @@ const rememberMessage = (msg) => {
 }
 
 async function startRexBot() {
+  printBanner()
   const { state, saveCreds } = await useMultiFileAuthState(CONFIG.authDir)
 
   let version
@@ -40,7 +42,7 @@ async function startRexBot() {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
-    logger,
+    logger: socketLogger,
     browser: Browsers.ubuntu(CONFIG.botName),
     printQRInTerminal: false,
     markOnlineOnConnect: true,

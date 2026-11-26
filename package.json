@@ -1,6 +1,6 @@
 {
   "name": "rexbot-v2",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Simple WhatsApp bot built on Baileys v7 — stickers, dice, avatar fetch.",
   "type": "module",
   "main": "src/index.js",
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test test/media.test.js test/limiter.test.js test/jid.test.js"
+    "test": "node --test test/media.test.js test/limiter.test.js test/jid.test.js test/sound.test.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc14",
@@ -19,6 +19,7 @@
     "music-metadata": "^11.16.1",
     "node-webpmux": "^3.2.0",
     "pino": "^9.0.0",
+    "pino-pretty": "^13.2.0",
     "qrcode-terminal": "^0.12.0",
     "sharp": "^0.35.5"
   },
